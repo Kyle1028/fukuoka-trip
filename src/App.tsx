@@ -300,7 +300,7 @@ const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
 
       {/* 底部裝飾文字 */}
       <p className="absolute bottom-6 text-slate-600 text-xs">
-        與朋友共同規劃的美好回憶 ✨
+        
       </p>
     </div>
   );
@@ -310,10 +310,13 @@ const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
 interface ItineraryItemProps {
   item: ItineraryItem;
   onDelete: (id: string) => void;
+  onUpdate: (id: string, field: string, value: string) => void;
 }
 
-const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete }) => {
+const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete, onUpdate }) => {
   const [showMap, setShowMap] = useState(false);
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
   
   const config = useMemo(() => {
     switch (item.type) {
@@ -356,6 +359,36 @@ const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete }
     window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
   };
 
+  // 開始編輯
+  const startEdit = (field: string, currentValue: string) => {
+    setEditingField(field);
+    setEditValue(currentValue);
+  };
+
+  // 儲存編輯
+  const saveEdit = () => {
+    if (editingField && editValue.trim()) {
+      onUpdate(item.id, editingField, editValue.trim());
+    }
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  // 取消編輯
+  const cancelEdit = () => {
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  // 處理按鍵
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      cancelEdit();
+    }
+  };
+
   return (
     <div className="flex gap-4 mb-6 relative pl-6 group">
       {/* 時間軸線條 */}
@@ -374,16 +407,77 @@ const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete }
         </button>
         
         <div className="flex items-center gap-3 mb-3">
-          <span className="font-mono text-sm font-bold text-blue-400 bg-blue-500/10 px-3 py-1.5 rounded-lg border border-blue-500/20">
-            {item.time}
-          </span>
+          {/* 時間 - 可編輯 */}
+          {editingField === 'time' ? (
+            <input
+              type="time"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={saveEdit}
+              onKeyDown={handleKeyDown}
+              autoFocus
+              className="font-mono text-sm font-bold text-blue-400 bg-blue-500/20 px-3 py-1.5 rounded-lg border border-blue-500/50 outline-none w-24"
+            />
+          ) : (
+            <button
+              onClick={() => startEdit('time', item.time)}
+              className="font-mono text-sm font-bold text-blue-400 bg-blue-500/10 px-3 py-1.5 rounded-lg border border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-500/40 transition-all cursor-pointer"
+              title="點擊編輯時間"
+            >
+              {item.time}
+            </button>
+          )}
           <span className={`text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 font-medium border ${config.color}`}>
             {config.icon} {item.typeLabel}
           </span>
         </div>
         
-        <h3 className="font-bold text-slate-100 text-lg mb-1.5">{item.title}</h3>
-        {item.notes && <p className="text-slate-400 text-sm leading-relaxed mb-3">{item.notes}</p>}
+        {/* 標題 - 可編輯 */}
+        {editingField === 'title' ? (
+          <input
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={saveEdit}
+            onKeyDown={handleKeyDown}
+            autoFocus
+            className="w-full font-bold text-slate-100 text-lg mb-1.5 bg-slate-800/50 px-3 py-1.5 rounded-lg border border-blue-500/50 outline-none"
+            placeholder="輸入地點名稱"
+          />
+        ) : (
+          <h3 
+            onClick={() => startEdit('title', item.title)}
+            className="font-bold text-slate-100 text-lg mb-1.5 hover:text-blue-400 cursor-pointer transition-colors"
+            title="點擊編輯標題"
+          >
+            {item.title}
+          </h3>
+        )}
+        
+        {/* 備註 - 可編輯 */}
+        {editingField === 'notes' ? (
+          <textarea
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={saveEdit}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') cancelEdit();
+            }}
+            autoFocus
+            className="w-full text-slate-400 text-sm leading-relaxed mb-3 bg-slate-800/50 px-3 py-2 rounded-lg border border-blue-500/50 outline-none resize-none h-20"
+            placeholder="輸入備註（可選）"
+          />
+        ) : (
+          <p 
+            onClick={() => startEdit('notes', item.notes || '')}
+            className={`text-sm leading-relaxed mb-3 cursor-pointer transition-colors ${
+              item.notes ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-slate-400 italic'
+            }`}
+            title="點擊編輯備註"
+          >
+            {item.notes || '+ 點擊新增備註'}
+          </p>
+        )}
         
         {/* 嵌入式 Google Maps */}
         {showMap && (
@@ -1018,7 +1112,16 @@ const FukuokaApp: React.FC = () => {
                               '刪除行程', 
                               '確定要刪除這個行程嗎？', 
                               async () => await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'itinerary', id))
-                            )} 
+                            )}
+                            onUpdate={async (id: string, field: string, value: string) => {
+                              try {
+                                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'itinerary', id), {
+                                  [field]: value
+                                });
+                              } catch (error) {
+                                console.error('更新行程失敗:', error);
+                              }
+                            }}
                           />
                         ))}
                       </div>
