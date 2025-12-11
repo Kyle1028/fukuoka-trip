@@ -25,7 +25,7 @@ import {
   Utensils, ShoppingBag, Train, Settings, Search, 
   ExternalLink, Wallet, X, NotebookPen, StickyNote,   
   EyeOff, RotateCcw, Pencil, AlertCircle, Plane,
-  Sparkles, Cherry
+  Sparkles, Cherry, RefreshCw, Loader2
 } from 'lucide-react';
 
 // --- Firebase 設定 ---
@@ -384,9 +384,11 @@ interface ExpenseItemProps {
   item: ExpenseItem;
   currentUserName: string;
   onDelete: (id: string) => void;
+  showTWD: boolean;
+  exchangeRate: number;
 }
 
-const ExpenseItemComponent: React.FC<ExpenseItemProps> = ({ item, currentUserName, onDelete }) => {
+const ExpenseItemComponent: React.FC<ExpenseItemProps> = ({ item, currentUserName, onDelete, showTWD, exchangeRate }) => {
   const isMe = item.payer === currentUserName;
 
   return (
@@ -408,8 +410,17 @@ const ExpenseItemComponent: React.FC<ExpenseItemProps> = ({ item, currentUserNam
       </div>
       <div className="text-right flex flex-col items-end">
         <div className="font-bold text-slate-200 text-lg tracking-tight">
-          ¥{Number(item.amount).toLocaleString()}
+          {showTWD ? (
+            <>NT$ {Math.round(Number(item.amount) * exchangeRate).toLocaleString()}</>
+          ) : (
+            <>¥{Number(item.amount).toLocaleString()}</>
+          )}
         </div>
+        {showTWD && (
+          <div className="text-[10px] text-slate-500">
+            ≈ ¥{Number(item.amount).toLocaleString()}
+          </div>
+        )}
         {isMe && (
           <button 
             onClick={() => onDelete(item.id)} 
@@ -522,6 +533,9 @@ const GuideCard: React.FC<GuideCardProps> = ({ data, onHide }) => (
 );
 
 // --- 主程式 ---
+// 預設匯率（備用）
+const DEFAULT_JPY_TO_TWD_RATE = 0.22;
+
 const FukuokaApp: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userName, setUserName] = useState<string>('');
@@ -535,6 +549,10 @@ const FukuokaApp: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [hiddenGuideIds, setHiddenGuideIds] = useState<string[]>([]);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const [exchangeRate, setExchangeRate] = useState(DEFAULT_JPY_TO_TWD_RATE);
+  const [showTWD, setShowTWD] = useState(false);
+  const [rateLoading, setRateLoading] = useState(false);
+  const [rateLastUpdated, setRateLastUpdated] = useState<string | null>(null);
   
   const [showAddItinerary, setShowAddItinerary] = useState(false);
   const [showAddExpense, setShowAddExpense] = useState(false);
@@ -544,6 +562,42 @@ const FukuokaApp: React.FC = () => {
   const [newItem, setNewItem] = useState({ day: 'Day 1', time: '10:00', title: '', type: 'sightseeing', notes: '' });
   const [newExpense, setNewExpense] = useState({ description: '', amount: '', payer: '' });
   const [newMemo, setNewMemo] = useState({ content: '', category: '筆記' });
+
+  // 獲取即時匯率
+  const fetchExchangeRate = async () => {
+    setRateLoading(true);
+    try {
+      // 使用免費的 ExchangeRate-API（不需要 API 金鑰）
+      const response = await fetch('https://api.exchangerate-api.com/v4/latest/JPY');
+      const data = await response.json();
+      
+      if (data && data.rates && data.rates.TWD) {
+        const rate = data.rates.TWD;
+        setExchangeRate(rate);
+        setRateLastUpdated(new Date().toLocaleString('zh-TW'));
+        // 儲存到 localStorage 作為快取
+        localStorage.setItem('fukuoka_exchange_rate', JSON.stringify({
+          rate,
+          timestamp: Date.now()
+        }));
+      }
+    } catch (error) {
+      console.error('無法獲取匯率:', error);
+      // 嘗試從快取讀取
+      const cached = localStorage.getItem('fukuoka_exchange_rate');
+      if (cached) {
+        try {
+          const { rate } = JSON.parse(cached);
+          setExchangeRate(rate);
+          setRateLastUpdated('(快取)');
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    } finally {
+      setRateLoading(false);
+    }
+  };
 
   useEffect(() => {
     const savedName = localStorage.getItem('fukuoka_trip_user_name');
@@ -556,6 +610,9 @@ const FukuokaApp: React.FC = () => {
     if (savedHidden) { 
       try { setHiddenGuideIds(JSON.parse(savedHidden)); } catch(e) { console.error(e); } 
     }
+    
+    // 載入時獲取匯率
+    fetchExchangeRate();
     
     signInAnonymously(auth).catch(err => console.error("Auth error:", err));
     const unsubscribe = onAuthStateChanged(auth, setUser);
@@ -596,18 +653,25 @@ const FukuokaApp: React.FC = () => {
     e.preventDefault(); 
     if (!user) return;
     
+    // 先關閉 modal
+    setShowAddItinerary(false);
+    
     let typeLabel = '景點';
     if(newItem.type === 'food') typeLabel = '美食';
     if(newItem.type === 'shopping') typeLabel = '購物';
     if(newItem.type === 'transport') typeLabel = '交通';
     
-    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'itinerary'), { 
-      ...newItem, 
-      typeLabel, 
-      createdBy: userName, 
-      createdAt: serverTimestamp() 
-    });
-    setShowAddItinerary(false); 
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'itinerary'), { 
+        ...newItem, 
+        typeLabel, 
+        createdBy: userName, 
+        createdAt: serverTimestamp() 
+      });
+    } catch (error) {
+      console.error('新增行程失敗:', error);
+    }
+    
     setNewItem({ day: 'Day 1', time: '10:00', title: '', type: 'sightseeing', notes: '' });
   };
 
@@ -615,13 +679,20 @@ const FukuokaApp: React.FC = () => {
     e.preventDefault(); 
     if (!user) return;
     
-    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), { 
-      description: newExpense.description, 
-      amount: Number(newExpense.amount), 
-      payer: newExpense.payer || userName, 
-      createdAt: serverTimestamp() 
-    });
-    setShowAddExpense(false); 
+    // 先關閉 modal
+    setShowAddExpense(false);
+    
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), { 
+        description: newExpense.description, 
+        amount: Number(newExpense.amount), 
+        payer: newExpense.payer || userName, 
+        createdAt: serverTimestamp() 
+      });
+    } catch (error) {
+      console.error('新增記帳失敗:', error);
+    }
+    
     setNewExpense({ description: '', amount: '', payer: userName });
   };
 
@@ -629,20 +700,27 @@ const FukuokaApp: React.FC = () => {
     e.preventDefault(); 
     if (!user) return;
     
-    if (editingMemo) {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', editingMemo.id), { 
-        content: newMemo.content, 
-        category: newMemo.category, 
-        updatedAt: serverTimestamp() 
-      });
-    } else {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'memos'), { 
-        ...newMemo, 
-        createdBy: userName, 
-        createdAt: serverTimestamp() 
-      });
+    // 先關閉 modal
+    setShowAddMemo(false);
+    
+    try {
+      if (editingMemo) {
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', editingMemo.id), { 
+          content: newMemo.content, 
+          category: newMemo.category, 
+          updatedAt: serverTimestamp() 
+        });
+      } else {
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'memos'), { 
+          ...newMemo, 
+          createdBy: userName, 
+          createdAt: serverTimestamp() 
+        });
+      }
+    } catch (error) {
+      console.error('儲存筆記失敗:', error);
     }
-    setShowAddMemo(false); 
+    
     setEditingMemo(null); 
     setNewMemo({ content: '', category: '筆記' });
   };
@@ -715,7 +793,7 @@ const FukuokaApp: React.FC = () => {
         {/* 行程頁面 */}
         {activeTab === 'itinerary' && (
           <div className="animate-fade-in">
-            <div className="flex justify-between items-end mb-8">
+            <div className="flex justify-between items-end mb-4">
               <div>
                 <h2 className="text-2xl font-black text-slate-100">行程總覽</h2>
                 <p className="text-sm text-slate-500 mt-1">與朋友的共同回憶</p>
@@ -726,6 +804,37 @@ const FukuokaApp: React.FC = () => {
               >
                 <Plus className="w-5 h-5" />
               </button>
+            </div>
+            
+            {/* 天數快速導航 */}
+            <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide -mx-1 px-1">
+              {days.map((day, index) => {
+                const dayItems = itinerary.filter(i => i.day === day);
+                const hasItems = dayItems.length > 0;
+                return (
+                  <button
+                    key={day}
+                    onClick={() => {
+                      const element = document.getElementById(`day-${index + 1}`);
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    }}
+                    className={`flex-shrink-0 px-4 py-2.5 rounded-xl font-bold text-sm transition-all border ${
+                      hasItems
+                        ? 'bg-gradient-to-br from-blue-600/20 to-indigo-600/20 text-blue-400 border-blue-500/30 hover:from-blue-600/30 hover:to-indigo-600/30'
+                        : 'bg-slate-900/50 text-slate-500 border-slate-800/50 hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span>Day {index + 1}</span>
+                      {hasItems && (
+                        <span className="text-[10px] text-blue-300/70">{dayItems.length} 項</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
             
             {loading ? (
@@ -741,11 +850,11 @@ const FukuokaApp: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-10 pb-10">
-                {days.map(day => {
+                {days.map((day, index) => {
                   const dayItems = itinerary.filter(i => i.day === day);
                   if (dayItems.length === 0) return null;
                   return (
-                    <div key={day} className="relative">
+                    <div key={day} id={`day-${index + 1}`} className="relative scroll-mt-28">
                       <div className="sticky top-[72px] z-10 bg-slate-950/95 backdrop-blur-sm py-2 mb-4">
                         <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-600/20 to-indigo-600/20 text-blue-400 font-bold text-xs border border-blue-500/20">
                           {day}
@@ -788,6 +897,59 @@ const FukuokaApp: React.FC = () => {
               </button>
             </div>
             
+            {/* 幣別切換 */}
+            <div className="bg-slate-900/50 rounded-xl p-3 border border-slate-800/50 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-400">顯示幣別：</span>
+                  <div className="flex bg-slate-800/80 rounded-lg p-1">
+                    <button
+                      onClick={() => setShowTWD(false)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                        !showTWD 
+                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg' 
+                          : 'text-slate-400 hover:text-slate-300'
+                      }`}
+                    >
+                      ¥ 日圓
+                    </button>
+                    <button
+                      onClick={() => setShowTWD(true)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                        showTWD 
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg' 
+                          : 'text-slate-400 hover:text-slate-300'
+                      }`}
+                    >
+                      NT$ 台幣
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={fetchExchangeRate}
+                  disabled={rateLoading}
+                  className="p-2 rounded-lg bg-slate-800/80 text-slate-400 hover:text-blue-400 hover:bg-slate-700/80 transition-all disabled:opacity-50"
+                  title="更新匯率"
+                >
+                  {rateLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-slate-500">
+                <span>
+                  即時匯率: 1¥ ≈ NT$ {exchangeRate.toFixed(4)}
+                </span>
+                {rateLastUpdated && (
+                  <span className="text-slate-600">
+                    更新: {rateLastUpdated}
+                  </span>
+                )}
+              </div>
+            </div>
+            
             {/* 統計卡片 */}
             <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 rounded-3xl p-7 text-white shadow-2xl border border-slate-700/30 mb-8 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-[60px]"></div>
@@ -796,7 +958,18 @@ const FukuokaApp: React.FC = () => {
               <div className="flex justify-between items-start mb-6 relative z-10">
                 <div>
                   <div className="text-slate-400 text-xs font-medium uppercase tracking-widest mb-1">Total Expenses</div>
-                  <div className="text-4xl font-black">¥{expenseStats.total.toLocaleString()}</div>
+                  <div className="text-4xl font-black">
+                    {showTWD ? (
+                      <>NT$ {Math.round(expenseStats.total * exchangeRate).toLocaleString()}</>
+                    ) : (
+                      <>¥{expenseStats.total.toLocaleString()}</>
+                    )}
+                  </div>
+                  {showTWD && (
+                    <div className="text-sm text-slate-500 mt-1">
+                      ≈ ¥{expenseStats.total.toLocaleString()}
+                    </div>
+                  )}
                 </div>
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/10">
                   <Wallet className="w-6 h-6 text-blue-300" />
@@ -807,7 +980,13 @@ const FukuokaApp: React.FC = () => {
                 {expenseStats.payers.map(payer => (
                   <div key={payer}>
                     <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">{payer} 已付</div>
-                    <div className="font-mono text-xl font-bold text-blue-300">¥{expenseStats.breakdown[payer].toLocaleString()}</div>
+                    <div className="font-mono text-xl font-bold text-blue-300">
+                      {showTWD ? (
+                        <>NT$ {Math.round(expenseStats.breakdown[payer] * exchangeRate).toLocaleString()}</>
+                      ) : (
+                        <>¥{expenseStats.breakdown[payer].toLocaleString()}</>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -819,6 +998,8 @@ const FukuokaApp: React.FC = () => {
                   key={item.id} 
                   item={item} 
                   currentUserName={userName} 
+                  showTWD={showTWD}
+                  exchangeRate={exchangeRate}
                   onDelete={(id: string) => requestConfirm(
                     '刪除記帳', 
                     '確定要刪除這筆記帳嗎？', 
