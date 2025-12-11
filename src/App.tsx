@@ -771,7 +771,13 @@ const FukuokaApp: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // 如果 5 秒後還沒有 user，停止 loading
+      const timeout = setTimeout(() => {
+        setLoading(false);
+      }, 5000);
+      return () => clearTimeout(timeout);
+    }
     
     const unsub1 = onSnapshot(
       query(collection(db, 'artifacts', appId, 'public', 'data', 'itinerary')), 
@@ -780,17 +786,23 @@ const FukuokaApp: React.FC = () => {
         items.sort((a, b) => (a.day !== b.day ? a.day.localeCompare(b.day) : a.time.localeCompare(b.time)));
         setItinerary(items); 
         setLoading(false);
+      },
+      (error) => {
+        console.error('Firestore error:', error);
+        setLoading(false);
       }
     );
     
     const unsub2 = onSnapshot(
       query(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), orderBy('createdAt', 'desc')), 
-      (snap) => setExpenses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ExpenseItem[])
+      (snap) => setExpenses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ExpenseItem[]),
+      (error) => console.error('Expenses error:', error)
     );
     
     const unsub3 = onSnapshot(
       query(collection(db, 'artifacts', appId, 'public', 'data', 'memos'), orderBy('createdAt', 'desc')), 
-      (snap) => setMemos(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as MemoItem[])
+      (snap) => setMemos(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as MemoItem[]),
+      (error) => console.error('Memos error:', error)
     );
     
     return () => { unsub1(); unsub2(); unsub3(); };
