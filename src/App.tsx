@@ -25,7 +25,7 @@ import {
   Utensils, ShoppingBag, Train, Settings, Search, 
   ExternalLink, Wallet, X, NotebookPen, StickyNote,   
   EyeOff, RotateCcw, Pencil, AlertCircle, Plane,
-  Sparkles, Cherry, RefreshCw, Loader2
+  Sparkles, Cherry, RefreshCw, Loader2, Map
 } from 'lucide-react';
 
 // --- Firebase 設定 ---
@@ -311,6 +311,8 @@ interface ItineraryItemProps {
 }
 
 const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete }) => {
+  const [showMap, setShowMap] = useState(false);
+  
   const config = useMemo(() => {
     switch (item.type) {
       case 'food': return { 
@@ -339,6 +341,18 @@ const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete }
       };
     }
   }, [item.type]);
+
+  // Google Maps 嵌入 URL
+  const mapEmbedUrl = useMemo(() => {
+    const query = encodeURIComponent(`${item.title} 福岡`);
+    return `https://www.google.com/maps?q=${query}&output=embed`;
+  }, [item.title]);
+
+  // 打開 Google Maps（在新視窗）
+  const openGoogleMaps = () => {
+    const query = encodeURIComponent(`${item.title} 福岡`);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+  };
 
   return (
     <div className="flex gap-4 mb-6 relative pl-6 group">
@@ -369,7 +383,47 @@ const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete }
         <h3 className="font-bold text-slate-100 text-lg mb-1.5">{item.title}</h3>
         {item.notes && <p className="text-slate-400 text-sm leading-relaxed mb-3">{item.notes}</p>}
         
-        <div className="flex justify-end border-t border-slate-800/50 pt-3 mt-1">
+        {/* 嵌入式 Google Maps */}
+        {showMap && (
+          <div className="mb-3 rounded-xl overflow-hidden border border-slate-700/50 animate-fade-in">
+            <iframe
+              src={mapEmbedUrl}
+              width="100%"
+              height="200"
+              style={{ border: 0 }}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              className="w-full"
+            />
+          </div>
+        )}
+        
+        <div className="flex justify-between items-center border-t border-slate-800/50 pt-3 mt-1">
+          {/* 地圖按鈕 */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowMap(!showMap)}
+              className={`flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg border transition-all ${
+                showMap 
+                  ? 'text-blue-400 bg-blue-500/20 border-blue-500/30' 
+                  : 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/20'
+              }`}
+            >
+              <Map className="w-3.5 h-3.5" />
+              {showMap ? '隱藏地圖' : '顯示地圖'}
+            </button>
+            {showMap && (
+              <button
+                onClick={openGoogleMaps}
+                className="flex items-center gap-1 text-[10px] font-medium text-slate-400 hover:text-blue-400 transition-all"
+              >
+                <ExternalLink className="w-3 h-3" />
+                開啟
+              </button>
+            )}
+          </div>
+          
           <div className="text-[10px] font-medium text-slate-500 flex items-center gap-1.5 bg-slate-800/50 px-2.5 py-1 rounded-lg">
             <Users className="w-3 h-3" /> {item.createdBy}
           </div>
