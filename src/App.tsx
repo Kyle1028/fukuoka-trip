@@ -26,8 +26,25 @@ import {
   ExternalLink, Wallet, X, NotebookPen, StickyNote,   
   EyeOff, RotateCcw, Pencil, AlertCircle, Plane,
   Sparkles, Cherry, RefreshCw, Loader2, Map,
-  PlaneTakeoff, PlaneLanding
+  PlaneTakeoff, PlaneLanding, GripVertical
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // --- Firebase 設定 ---
 const firebaseConfig = {
@@ -311,9 +328,13 @@ interface ItineraryItemProps {
   item: ItineraryItem;
   onDelete: (id: string) => void;
   onUpdate: (id: string, field: string, value: string) => void;
+  dragHandleProps?: {
+    attributes: React.HTMLAttributes<HTMLElement>;
+    listeners: Record<string, Function> | undefined;
+  };
 }
 
-const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete, onUpdate }) => {
+const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete, onUpdate, dragHandleProps }) => {
   const [showMap, setShowMap] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -399,6 +420,16 @@ const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete, 
       
       {/* 卡片 */}
       <div className="flex-1 bg-gradient-to-br from-slate-900 to-slate-900/80 p-5 rounded-2xl border border-slate-800/80 relative group-hover:border-slate-700/80 transition-all duration-300 card-hover">
+        {/* 拖拽把手 */}
+        {dragHandleProps && (
+          <div 
+            {...dragHandleProps.attributes} 
+            {...dragHandleProps.listeners}
+            className="absolute top-3 left-3 p-2 text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 rounded-xl cursor-grab active:cursor-grabbing transition-all touch-none"
+          >
+            <GripVertical className="w-4 h-4" />
+          </div>
+        )}
         <button 
           onClick={() => onDelete(item.id)} 
           className="absolute top-3 right-3 p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
@@ -525,6 +556,42 @@ const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete, 
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+// --- 可拖拽行程項目 ---
+interface SortableItemProps {
+  item: ItineraryItem;
+  onDelete: (id: string) => void;
+  onUpdate: (id: string, field: string, value: string) => void;
+}
+
+const SortableItem: React.FC<SortableItemProps> = ({ item, onDelete, onUpdate }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ItineraryItemComponent
+        item={item}
+        onDelete={onDelete}
+        onUpdate={onUpdate}
+        dragHandleProps={{ attributes, listeners }}
+      />
     </div>
   );
 };
@@ -712,6 +779,49 @@ const FukuokaApp: React.FC = () => {
   const [newItem, setNewItem] = useState({ day: 'Day 1', time: '10:00', title: '', type: 'sightseeing', notes: '' });
   const [newExpense, setNewExpense] = useState({ description: '', amount: '', payer: '' });
   const [newMemo, setNewMemo] = useState({ content: '', category: '筆記' });
+
+  // 拖拽排序 sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // 拖拽結束處理
+  const handleDragEnd = async (event: DragEndEvent, dayItems: ItineraryItem[]) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const oldIndex = dayItems.findIndex((item) => item.id === active.id);
+      const newIndex = dayItems.findIndex((item) => item.id === over.id);
+      
+      const reorderedItems = arrayMove(dayItems, oldIndex, newIndex);
+      
+      // 更新每個項目的時間來反映新順序
+      // 使用拖拽後的順序來生成新的時間
+      const baseTime = dayItems[0]?.time || '09:00';
+      const [baseHour, baseMinute] = baseTime.split(':').map(Number);
+      
+      for (let i = 0; i < reorderedItems.length; i++) {
+        const newHour = baseHour + Math.floor((baseMinute + i * 60) / 60);
+        const newMinute = (baseMinute + i * 60) % 60;
+        const newTime = `${String(newHour).padStart(2, '0')}:${String(newMinute).padStart(2, '0')}`;
+        
+        try {
+          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'itinerary', reorderedItems[i].id), {
+            time: newTime
+          });
+        } catch (error) {
+          console.error('更新排序失敗:', error);
+        }
+      }
+    }
+  };
 
   // 獲取即時匯率
   const fetchExchangeRate = async () => {
@@ -1110,33 +1220,47 @@ const FukuokaApp: React.FC = () => {
                   if (dayItems.length === 0) return null;
                   return (
                     <div key={day} id={`day-${index + 1}`} className="relative scroll-mt-28">
-                      <div className="sticky top-[72px] z-10 bg-slate-950/95 backdrop-blur-sm py-2 mb-4">
+                      <div className="sticky top-[72px] z-10 bg-slate-950/95 backdrop-blur-sm py-2 mb-4 flex items-center gap-3">
                         <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-600/20 to-indigo-600/20 text-blue-400 font-bold text-xs border border-blue-500/20">
                           {day}
                         </span>
+                        <span className="text-[10px] text-slate-600 flex items-center gap-1">
+                          <GripVertical className="w-3 h-3" /> 拖拽排序
+                        </span>
                       </div>
-                      <div className="space-y-1">
-                        {dayItems.map(item => (
-                          <ItineraryItemComponent 
-                            key={item.id} 
-                            item={item} 
-                            onDelete={(id: string) => requestConfirm(
-                              '刪除行程', 
-                              '確定要刪除這個行程嗎？', 
-                              async () => await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'itinerary', id))
-                            )}
-                            onUpdate={async (id: string, field: string, value: string) => {
-                              try {
-                                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'itinerary', id), {
-                                  [field]: value
-                                });
-                              } catch (error) {
-                                console.error('更新行程失敗:', error);
-                              }
-                            }}
-                          />
-                        ))}
-                      </div>
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => handleDragEnd(event, dayItems)}
+                      >
+                        <SortableContext
+                          items={dayItems.map(item => item.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-1">
+                            {dayItems.map(item => (
+                              <SortableItem
+                                key={item.id} 
+                                item={item} 
+                                onDelete={(id: string) => requestConfirm(
+                                  '刪除行程', 
+                                  '確定要刪除這個行程嗎？', 
+                                  async () => await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'itinerary', id))
+                                )}
+                                onUpdate={async (id: string, field: string, value: string) => {
+                                  try {
+                                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'itinerary', id), {
+                                      [field]: value
+                                    });
+                                  } catch (error) {
+                                    console.error('更新行程失敗:', error);
+                                  }
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
                     </div>
                   );
                 })}
