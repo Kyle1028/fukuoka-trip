@@ -1111,97 +1111,6 @@ const FukuokaApp: React.FC = () => {
               })}
             </div>
             
-            {/* 航班資訊區塊 - 固定顯示 */}
-            <div className="mb-6 bg-gradient-to-br from-slate-900 to-slate-900/80 rounded-2xl border border-slate-800/80 overflow-hidden">
-              {/* 標題列 */}
-              <div className="px-5 py-4 flex items-center gap-3 border-b border-slate-800/50">
-                <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                  <Plane className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-100">航班資訊</h3>
-                  <p className="text-[11px] text-slate-500">AirAsia 馬來西亞亞洲航空</p>
-                </div>
-              </div>
-              
-              {/* 固定航班資訊 */}
-              <div className="px-5 py-4 space-y-3">
-                {/* 去程 */}
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/30">
-                  <div className="flex items-center gap-2 mb-3">
-                    <PlaneTakeoff className="w-4 h-4 text-sky-400" />
-                    <span className="text-xs font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-md">去程</span>
-                    <span className="text-xs text-slate-500">2026-01-13（一）</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-center">
-                      <p className="text-xl font-bold text-slate-100">TPE</p>
-                      <p className="text-sm text-slate-400">11:55</p>
-                      <p className="text-[10px] text-slate-600">桃園 T1</p>
-                    </div>
-                    <div className="flex-1 flex items-center justify-center px-4">
-                      <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-700 to-slate-600"></div>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText('AK1510');
-                          alert('已複製航班號碼 AK1510');
-                        }}
-                        className="px-3 text-center hover:bg-slate-700/50 rounded-lg py-1 transition-all cursor-pointer group"
-                        title="點擊複製航班號碼"
-                      >
-                        <p className="text-[10px] text-slate-500 font-medium">AirAsia</p>
-                        <p className="text-sm font-bold text-slate-300 group-hover:text-sky-400 transition-colors">AK1510</p>
-                        <p className="text-[10px] text-slate-600 group-hover:text-sky-400/70">點擊複製</p>
-                      </button>
-                      <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-600 to-slate-700"></div>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xl font-bold text-slate-100">FUK</p>
-                      <p className="text-sm text-slate-400">15:15</p>
-                      <p className="text-[10px] text-slate-600">福岡</p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* 回程 */}
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/30">
-                  <div className="flex items-center gap-2 mb-3">
-                    <PlaneLanding className="w-4 h-4 text-orange-400" />
-                    <span className="text-xs font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-md">回程</span>
-                    <span className="text-xs text-slate-500">2026-01-19（日）</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-center">
-                      <p className="text-xl font-bold text-slate-100">FUK</p>
-                      <p className="text-sm text-slate-400">16:55</p>
-                      <p className="text-[10px] text-slate-600">福岡</p>
-                    </div>
-                    <div className="flex-1 flex items-center justify-center px-4">
-                      <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-700 to-slate-600"></div>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText('AK1511');
-                          alert('已複製航班號碼 AK1511');
-                        }}
-                        className="px-3 text-center hover:bg-slate-700/50 rounded-lg py-1 transition-all cursor-pointer group"
-                        title="點擊複製航班號碼"
-                      >
-                        <p className="text-[10px] text-slate-500 font-medium">AirAsia</p>
-                        <p className="text-sm font-bold text-slate-300 group-hover:text-orange-400 transition-colors">AK1511</p>
-                        <p className="text-[10px] text-slate-600 group-hover:text-orange-400/70">點擊複製</p>
-                      </button>
-                      <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-600 to-slate-700"></div>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xl font-bold text-slate-100">TPE</p>
-                      <p className="text-sm text-slate-400">18:30</p>
-                      <p className="text-[10px] text-slate-600">桃園 T1</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
             {loading ? (
               <div className="text-center py-20">
                 <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
@@ -1402,10 +1311,10 @@ const FukuokaApp: React.FC = () => {
         {/* 筆記頁面 */}
         {activeTab === 'memos' && (
           <div className="animate-fade-in">
-            <div className="flex justify-between items-end mb-8">
+            <div className="flex justify-between items-end mb-6">
               <div>
                 <h2 className="text-2xl font-black text-slate-100">隨手筆記</h2>
-                <p className="text-sm text-slate-500 mt-1">購物清單、航班資訊...</p>
+                <p className="text-sm text-slate-500 mt-1">購物清單、重要資訊...</p>
               </div>
               <button 
                 onClick={() => { setEditingMemo(null); setNewMemo({ content: '', category: '筆記' }); setShowAddMemo(true); }} 
@@ -1413,6 +1322,97 @@ const FukuokaApp: React.FC = () => {
               >
                 <Plus className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* 航班資訊區塊 - 置頂 */}
+            <div className="mb-6 bg-gradient-to-br from-slate-900 to-slate-900/80 rounded-2xl border border-slate-800/80 overflow-hidden">
+              {/* 標題列 */}
+              <div className="px-5 py-4 flex items-center gap-3 border-b border-slate-800/50">
+                <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Plane className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-100">航班資訊</h3>
+                  <p className="text-[11px] text-slate-500">AirAsia 馬來西亞亞洲航空</p>
+                </div>
+              </div>
+              
+              {/* 航班詳情 */}
+              <div className="px-5 py-4 space-y-3">
+                {/* 去程 */}
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/30">
+                  <div className="flex items-center gap-2 mb-3">
+                    <PlaneTakeoff className="w-4 h-4 text-sky-400" />
+                    <span className="text-xs font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-md">去程</span>
+                    <span className="text-xs text-slate-500">2026-01-13（一）</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-slate-100">TPE</p>
+                      <p className="text-sm text-slate-400">11:55</p>
+                      <p className="text-[10px] text-slate-600">桃園 T1</p>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center px-4">
+                      <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-700 to-slate-600"></div>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText('AK1510');
+                          alert('已複製航班號碼 AK1510');
+                        }}
+                        className="px-3 text-center hover:bg-slate-700/50 rounded-lg py-1 transition-all cursor-pointer group"
+                        title="點擊複製航班號碼"
+                      >
+                        <p className="text-[10px] text-slate-500 font-medium">AirAsia</p>
+                        <p className="text-sm font-bold text-slate-300 group-hover:text-sky-400 transition-colors">AK1510</p>
+                        <p className="text-[10px] text-slate-600 group-hover:text-sky-400/70">點擊複製</p>
+                      </button>
+                      <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-600 to-slate-700"></div>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-slate-100">FUK</p>
+                      <p className="text-sm text-slate-400">15:15</p>
+                      <p className="text-[10px] text-slate-600">福岡</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* 回程 */}
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/30">
+                  <div className="flex items-center gap-2 mb-3">
+                    <PlaneLanding className="w-4 h-4 text-orange-400" />
+                    <span className="text-xs font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-md">回程</span>
+                    <span className="text-xs text-slate-500">2026-01-19（日）</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-slate-100">FUK</p>
+                      <p className="text-sm text-slate-400">16:55</p>
+                      <p className="text-[10px] text-slate-600">福岡</p>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center px-4">
+                      <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-700 to-slate-600"></div>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText('AK1511');
+                          alert('已複製航班號碼 AK1511');
+                        }}
+                        className="px-3 text-center hover:bg-slate-700/50 rounded-lg py-1 transition-all cursor-pointer group"
+                        title="點擊複製航班號碼"
+                      >
+                        <p className="text-[10px] text-slate-500 font-medium">AirAsia</p>
+                        <p className="text-sm font-bold text-slate-300 group-hover:text-orange-400 transition-colors">AK1511</p>
+                        <p className="text-[10px] text-slate-600 group-hover:text-orange-400/70">點擊複製</p>
+                      </button>
+                      <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-600 to-slate-700"></div>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-slate-100">TPE</p>
+                      <p className="text-sm text-slate-400">18:30</p>
+                      <p className="text-[10px] text-slate-600">桃園 T1</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             
             {memos.length === 0 ? (
