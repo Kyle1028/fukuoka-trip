@@ -1051,12 +1051,33 @@ const FukuokaApp: React.FC = () => {
   }, [searchTerm, hiddenGuideIds]);
 
   const expenseStats = useMemo(() => {
-    const total = expenses.reduce((acc, cur) => acc + (Number(cur.amount) || 0), 0);
+    // 將所有金額統一換算成日幣（JPY）
+    const convertToJPY = (amount: number, currency: string) => {
+      if (currency === 'TWD') {
+        // 台幣換算成日幣：台幣 / exchangeRate
+        return Math.round(amount / exchangeRate);
+      }
+      return amount; // 已經是日幣
+    };
+    
+    const total = expenses.reduce((acc, cur) => {
+      const currency = cur.currency || 'JPY';
+      return acc + convertToJPY(Number(cur.amount) || 0, currency);
+    }, 0);
+    
     const payers = Array.from(new Set(expenses.map(e => e.payer)));
     const breakdown: Record<string, number> = {};
-    payers.forEach(p => breakdown[p] = expenses.filter(e => e.payer === p).reduce((acc, cur) => acc + (Number(cur.amount) || 0), 0));
+    payers.forEach(p => {
+      breakdown[p] = expenses
+        .filter(e => e.payer === p)
+        .reduce((acc, cur) => {
+          const currency = cur.currency || 'JPY';
+          return acc + convertToJPY(Number(cur.amount) || 0, currency);
+        }, 0);
+    });
+    
     return { total, breakdown, payers };
-  }, [expenses]);
+  }, [expenses, exchangeRate]);
 
   const days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'];
 
