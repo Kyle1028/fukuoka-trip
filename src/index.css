@@ -191,3 +191,23 @@ textarea,
 .memo-rotate:hover {
   transform: rotate(0deg) scale(1.02) !important;
 }
+
+/* 修復 iOS 上時間和選擇器輸入框樣式 */
+input[type="time"],
+input[type="date"],
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+/* 確保邊框在 iOS 上正確顯示 */
+input, select, textarea {
+  border-style: solid;
+}

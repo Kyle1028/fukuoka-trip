@@ -1755,7 +1755,7 @@ const FukuokaApp: React.FC = () => {
             <form onSubmit={handleAddItinerary} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <select 
-                  className="w-full p-3.5 bg-slate-950/80 border border-slate-700/50 rounded-xl text-slate-200 outline-none focus:border-blue-500/50 transition-all" 
+                  className="w-full p-3.5 bg-slate-950/80 border border-slate-700/50 rounded-xl text-slate-200 outline-none focus:border-blue-500/50 transition-all appearance-none" 
                   value={newItem.day} 
                   onChange={e => setNewItem({...newItem, day: e.target.value})}
                 >
@@ -1763,7 +1763,7 @@ const FukuokaApp: React.FC = () => {
                 </select>
                 <input 
                   type="time" 
-                  className="w-full p-3.5 bg-slate-950/80 border border-slate-700/50 rounded-xl text-slate-200 outline-none focus:border-blue-500/50 transition-all" 
+                  className="w-full p-3.5 bg-slate-950/80 border border-slate-700/50 rounded-xl text-slate-200 outline-none focus:border-blue-500/50 transition-all appearance-none [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert" 
                   value={newItem.time} 
                   onChange={e => setNewItem({...newItem, time: e.target.value})} 
                   required 
