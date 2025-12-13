@@ -381,6 +381,33 @@ const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete, 
     window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
   };
 
+  // 將備註中的網址轉換為可點擊的連結
+  const renderNotesWithLinks = (text: string) => {
+    // URL 正則表達式
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (urlRegex.test(part)) {
+        // 重置正則表達式的 lastIndex
+        urlRegex.lastIndex = 0;
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-blue-400 hover:text-blue-300 underline underline-offset-2 break-all"
+          >
+            🔗 開啟連結
+          </a>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   // 開始編輯
   const startEdit = (field: string, currentValue: string) => {
     setEditingField(field);
@@ -497,18 +524,18 @@ const ItineraryItemComponent: React.FC<ItineraryItemProps> = ({ item, onDelete, 
             }}
             autoFocus
             className="w-full text-slate-400 text-sm leading-relaxed mb-3 bg-slate-800/50 px-3 py-2 rounded-lg border border-blue-500/50 outline-none resize-none h-20"
-            placeholder="輸入備註（可選）"
+            placeholder="輸入備註或貼上地圖網址"
           />
         ) : (
-          <p 
+          <div 
             onClick={() => startEdit('notes', item.notes || '')}
-            className={`text-sm leading-relaxed mb-3 cursor-pointer transition-colors ${
+            className={`text-sm leading-relaxed mb-3 cursor-pointer transition-colors whitespace-pre-wrap ${
               item.notes ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-slate-400 italic'
             }`}
             title="點擊編輯備註"
           >
-            {item.notes || '+ 點擊新增備註'}
-          </p>
+            {item.notes ? renderNotesWithLinks(item.notes) : '+ 點擊新增備註'}
+          </div>
         )}
         
         {/* 嵌入式 Google Maps */}
