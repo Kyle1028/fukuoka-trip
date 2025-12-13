@@ -1536,15 +1536,14 @@ const FukuokaApp: React.FC = () => {
                       <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-700 to-slate-600"></div>
                       <button 
                         onClick={() => {
-                          navigator.clipboard.writeText('AK1510');
-                          alert('已複製航班號碼 AK1510');
+                          window.open('https://www.google.com/search?q=AK1510+flight+status', '_blank');
                         }}
                         className="px-3 text-center hover:bg-slate-700/50 rounded-lg py-1 transition-all cursor-pointer group"
-                        title="點擊複製航班號碼"
+                        title="點擊查詢航班"
                       >
                         <p className="text-[10px] text-slate-500 font-medium">AirAsia</p>
                         <p className="text-sm font-bold text-slate-300 group-hover:text-sky-400 transition-colors">AK1510</p>
-                        <p className="text-[10px] text-slate-600 group-hover:text-sky-400/70">點擊複製</p>
+                        <p className="text-[10px] text-slate-600 group-hover:text-sky-400/70">點擊查詢</p>
                       </button>
                       <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-600 to-slate-700"></div>
                     </div>
@@ -1573,15 +1572,14 @@ const FukuokaApp: React.FC = () => {
                       <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-700 to-slate-600"></div>
                       <button 
                         onClick={() => {
-                          navigator.clipboard.writeText('AK1511');
-                          alert('已複製航班號碼 AK1511');
+                          window.open('https://www.google.com/search?q=AK1511+flight+status', '_blank');
                         }}
                         className="px-3 text-center hover:bg-slate-700/50 rounded-lg py-1 transition-all cursor-pointer group"
-                        title="點擊複製航班號碼"
+                        title="點擊查詢航班"
                       >
                         <p className="text-[10px] text-slate-500 font-medium">AirAsia</p>
                         <p className="text-sm font-bold text-slate-300 group-hover:text-orange-400 transition-colors">AK1511</p>
-                        <p className="text-[10px] text-slate-600 group-hover:text-orange-400/70">點擊複製</p>
+                        <p className="text-[10px] text-slate-600 group-hover:text-orange-400/70">點擊查詢</p>
                       </button>
                       <div className="flex-1 h-[1px] bg-gradient-to-r from-slate-600 to-slate-700"></div>
                     </div>
