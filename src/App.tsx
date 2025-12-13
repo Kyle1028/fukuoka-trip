@@ -659,8 +659,6 @@ interface MemoItemProps {
 }
 
 const MemoItemComponent: React.FC<MemoItemProps> = ({ item, onDelete, onEdit }) => {
-  const rotate = useMemo(() => Math.random() * 2 - 1, []);
-  
   const categoryColors: Record<string, string> = {
     '筆記': 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
     '購物': 'bg-pink-500/10 text-pink-400 border-pink-500/20',
@@ -670,8 +668,7 @@ const MemoItemComponent: React.FC<MemoItemProps> = ({ item, onDelete, onEdit }) 
   
   return (
     <div 
-      className="bg-gradient-to-br from-amber-900/20 to-yellow-900/10 p-5 rounded-2xl border border-yellow-700/20 relative group hover:-translate-y-1 transition-all duration-300 memo-rotate"
-      style={{ transform: `rotate(${rotate}deg)` }}
+      className="bg-gradient-to-br from-amber-900/20 to-yellow-900/10 p-5 rounded-2xl border border-yellow-700/20 relative group hover:-translate-y-1 transition-all duration-300"
     >
       <div className="absolute top-2 right-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity bg-slate-950/70 rounded-lg p-1 backdrop-blur-sm">
         <button onClick={() => onEdit(item)} className="p-1.5 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-all">
