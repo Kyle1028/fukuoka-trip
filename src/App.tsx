@@ -602,11 +602,12 @@ interface ExpenseItemProps {
   item: ExpenseItem;
   currentUserName: string;
   onDelete: (id: string) => void;
+  onEdit: (item: ExpenseItem) => void;
   showTWD: boolean;
   exchangeRate: number;
 }
 
-const ExpenseItemComponent: React.FC<ExpenseItemProps> = ({ item, currentUserName, onDelete, showTWD, exchangeRate }) => {
+const ExpenseItemComponent: React.FC<ExpenseItemProps> = ({ item, currentUserName, onDelete, onEdit, showTWD, exchangeRate }) => {
   const isMe = item.payer === currentUserName;
   const currency = item.currency || 'JPY'; // 舊資料預設為 JPY
 
@@ -661,12 +662,20 @@ const ExpenseItemComponent: React.FC<ExpenseItemProps> = ({ item, currentUserNam
           </div>
         )}
         {isMe && (
-          <button 
-            onClick={() => onDelete(item.id)} 
-            className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2 py-1 rounded-lg mt-1 transition-all"
-          >
-            刪除
-          </button>
+          <div className="flex gap-1 mt-1">
+            <button 
+              onClick={() => onEdit(item)} 
+              className="text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 px-2 py-1 rounded-lg transition-all"
+            >
+              編輯
+            </button>
+            <button 
+              onClick={() => onDelete(item.id)} 
+              className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2 py-1 rounded-lg transition-all"
+            >
+              刪除
+            </button>
+          </div>
         )}
       </div>
     </div>
@@ -795,6 +804,7 @@ const FukuokaApp: React.FC = () => {
   const [showAddMemo, setShowAddMemo] = useState(false);
   
   const [editingMemo, setEditingMemo] = useState<MemoItem | null>(null);
+  const [editingExpense, setEditingExpense] = useState<ExpenseItem | null>(null);
   const [newItem, setNewItem] = useState({ day: 'Day 1', time: '10:00', title: '', type: 'sightseeing', notes: '' });
   const [newExpense, setNewExpense] = useState({ description: '', amount: '', payer: '', currency: 'JPY' as 'JPY' | 'TWD' });
   const [newMemo, setNewMemo] = useState({ content: '', category: '筆記' });
@@ -975,17 +985,29 @@ const FukuokaApp: React.FC = () => {
     setShowAddExpense(false);
     
     try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), { 
-        description: newExpense.description, 
-        amount: Number(newExpense.amount), 
-        payer: newExpense.payer || userName,
-        currency: newExpense.currency,
-        createdAt: serverTimestamp() 
-      });
+      if (editingExpense) {
+        // 編輯模式
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', editingExpense.id), {
+          description: newExpense.description, 
+          amount: Number(newExpense.amount), 
+          payer: newExpense.payer || userName,
+          currency: newExpense.currency,
+        });
+      } else {
+        // 新增模式
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), { 
+          description: newExpense.description, 
+          amount: Number(newExpense.amount), 
+          payer: newExpense.payer || userName,
+          currency: newExpense.currency,
+          createdAt: serverTimestamp() 
+        });
+      }
     } catch (error) {
-      console.error('新增記帳失敗:', error);
+      console.error('記帳操作失敗:', error);
     }
     
+    setEditingExpense(null);
     setNewExpense({ description: '', amount: '', payer: userName, currency: 'JPY' });
   };
 
@@ -1207,7 +1229,11 @@ const FukuokaApp: React.FC = () => {
                 <p className="text-sm text-slate-500 mt-1">分攤費用一目了然</p>
               </div>
               <button 
-                onClick={() => setShowAddExpense(true)} 
+                onClick={() => { 
+                  setEditingExpense(null); 
+                  setNewExpense({ description: '', amount: '', payer: userName, currency: 'JPY' }); 
+                  setShowAddExpense(true); 
+                }} 
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white w-11 h-11 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/30 transition-all btn-press"
               >
                 <Plus className="w-5 h-5" />
@@ -1321,7 +1347,17 @@ const FukuokaApp: React.FC = () => {
                     '刪除記帳', 
                     '確定要刪除這筆記帳嗎？', 
                     async () => await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', id))
-                  )} 
+                  )}
+                  onEdit={(expense: ExpenseItem) => {
+                    setEditingExpense(expense);
+                    setNewExpense({
+                      description: expense.description,
+                      amount: String(expense.amount),
+                      payer: expense.payer,
+                      currency: expense.currency || 'JPY'
+                    });
+                    setShowAddExpense(true);
+                  }}
                 />
               ))}
             </div>
@@ -1656,7 +1692,7 @@ const FukuokaApp: React.FC = () => {
       {showAddExpense && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-700/50 rounded-3xl w-full max-w-sm p-6 shadow-2xl relative animate-scale-up">
-            <button onClick={() => setShowAddExpense(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+            <button onClick={() => { setShowAddExpense(false); setEditingExpense(null); }} className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
               <X className="w-5 h-5" />
             </button>
             
@@ -1664,7 +1700,7 @@ const FukuokaApp: React.FC = () => {
               <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
                 <Wallet className="w-5 h-5 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-slate-100">記一筆</h3>
+              <h3 className="text-xl font-bold text-slate-100">{editingExpense ? '編輯記帳' : '記一筆'}</h3>
             </div>
             
             <form onSubmit={handleAddExpense} className="space-y-4">
@@ -1730,7 +1766,7 @@ const FukuokaApp: React.FC = () => {
                 type="submit" 
                 className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-900/30 transition-all btn-press"
               >
-                儲存
+                {editingExpense ? '更新' : '儲存'}
               </button>
             </form>
           </div>
