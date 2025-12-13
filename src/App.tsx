@@ -84,6 +84,7 @@ interface ExpenseItem {
   description: string;
   amount: number;
   payer: string;
+  currency: 'JPY' | 'TWD';
   createdAt?: Timestamp;
 }
 
@@ -607,6 +608,28 @@ interface ExpenseItemProps {
 
 const ExpenseItemComponent: React.FC<ExpenseItemProps> = ({ item, currentUserName, onDelete, showTWD, exchangeRate }) => {
   const isMe = item.payer === currentUserName;
+  const currency = item.currency || 'JPY'; // 舊資料預設為 JPY
+
+  // 計算顯示金額
+  const getDisplayAmount = () => {
+    if (currency === 'TWD') {
+      // 原始是台幣
+      if (showTWD) {
+        return { main: `NT$ ${Number(item.amount).toLocaleString()}`, sub: `≈ ¥${Math.round(Number(item.amount) / exchangeRate).toLocaleString()}` };
+      } else {
+        return { main: `¥${Math.round(Number(item.amount) / exchangeRate).toLocaleString()}`, sub: `= NT$ ${Number(item.amount).toLocaleString()}` };
+      }
+    } else {
+      // 原始是日幣
+      if (showTWD) {
+        return { main: `NT$ ${Math.round(Number(item.amount) * exchangeRate).toLocaleString()}`, sub: `≈ ¥${Number(item.amount).toLocaleString()}` };
+      } else {
+        return { main: `¥${Number(item.amount).toLocaleString()}`, sub: null };
+      }
+    }
+  };
+
+  const displayAmount = getDisplayAmount();
 
   return (
     <div className="bg-gradient-to-br from-slate-900 to-slate-900/80 p-4 rounded-2xl border border-slate-800/80 mb-3 flex justify-between items-center group hover:border-blue-500/30 transition-all card-hover">
@@ -620,22 +643,21 @@ const ExpenseItemComponent: React.FC<ExpenseItemProps> = ({ item, currentUserNam
         </div>
       <div>
           <h4 className="font-bold text-slate-200 text-[15px]">{item.description}</h4>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
             {item.createdAt ? new Date(item.createdAt.toDate()).toLocaleDateString('zh-TW') : ''}
+            <span className={`text-[9px] px-1.5 py-0.5 rounded ${currency === 'TWD' ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'}`}>
+              {currency === 'TWD' ? '🇹🇼' : '🇯🇵'}
+            </span>
           </p>
         </div>
       </div>
       <div className="text-right flex flex-col items-end">
         <div className="font-bold text-slate-200 text-lg tracking-tight">
-          {showTWD ? (
-            <>NT$ {Math.round(Number(item.amount) * exchangeRate).toLocaleString()}</>
-          ) : (
-            <>¥{Number(item.amount).toLocaleString()}</>
-          )}
+          {displayAmount.main}
         </div>
-        {showTWD && (
+        {displayAmount.sub && (
           <div className="text-[10px] text-slate-500">
-            ≈ ¥{Number(item.amount).toLocaleString()}
+            {displayAmount.sub}
           </div>
         )}
         {isMe && (
@@ -774,7 +796,7 @@ const FukuokaApp: React.FC = () => {
   
   const [editingMemo, setEditingMemo] = useState<MemoItem | null>(null);
   const [newItem, setNewItem] = useState({ day: 'Day 1', time: '10:00', title: '', type: 'sightseeing', notes: '' });
-  const [newExpense, setNewExpense] = useState({ description: '', amount: '', payer: '' });
+  const [newExpense, setNewExpense] = useState({ description: '', amount: '', payer: '', currency: 'JPY' as 'JPY' | 'TWD' });
   const [newMemo, setNewMemo] = useState({ content: '', category: '筆記' });
 
   // 拖拽排序 sensors
@@ -956,14 +978,15 @@ const FukuokaApp: React.FC = () => {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses'), { 
         description: newExpense.description, 
         amount: Number(newExpense.amount), 
-        payer: newExpense.payer || userName, 
+        payer: newExpense.payer || userName,
+        currency: newExpense.currency,
         createdAt: serverTimestamp() 
       });
     } catch (error) {
       console.error('新增記帳失敗:', error);
     }
     
-    setNewExpense({ description: '', amount: '', payer: userName });
+    setNewExpense({ description: '', amount: '', payer: userName, currency: 'JPY' });
   };
 
   const handleSaveMemo = async (e: React.FormEvent) => {
@@ -1663,12 +1686,40 @@ const FukuokaApp: React.FC = () => {
                 required 
               />
               
+              {/* 幣別選擇 */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNewExpense({...newExpense, currency: 'JPY'})}
+                  className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
+                    newExpense.currency === 'JPY'
+                      ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-900/30'
+                      : 'bg-slate-800/50 text-slate-400 border border-slate-700/50 hover:border-slate-600'
+                  }`}
+                >
+                  🇯🇵 日幣 JPY
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewExpense({...newExpense, currency: 'TWD'})}
+                  className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
+                    newExpense.currency === 'TWD'
+                      ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-900/30'
+                      : 'bg-slate-800/50 text-slate-400 border border-slate-700/50 hover:border-slate-600'
+                  }`}
+                >
+                  🇹🇼 台幣 TWD
+                </button>
+              </div>
+
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">¥</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+                  {newExpense.currency === 'JPY' ? '¥' : 'NT$'}
+                </span>
                 <input 
                   type="number" 
                   placeholder="金額" 
-                  className="w-full p-3.5 pl-10 bg-slate-950/80 border border-slate-700/50 rounded-xl text-slate-200 placeholder-slate-500 font-bold text-xl outline-none focus:border-blue-500/50 transition-all" 
+                  className={`w-full p-3.5 ${newExpense.currency === 'JPY' ? 'pl-10' : 'pl-14'} bg-slate-950/80 border border-slate-700/50 rounded-xl text-slate-200 placeholder-slate-500 font-bold text-xl outline-none focus:border-blue-500/50 transition-all`}
                   value={newExpense.amount} 
                   onChange={e => setNewExpense({...newExpense, amount: e.target.value})} 
                   required 
