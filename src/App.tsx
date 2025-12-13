@@ -3,8 +3,10 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { 
   getAuth, 
-  signInAnonymously, 
+  signInWithPopup,
+  GoogleAuthProvider,
   onAuthStateChanged,
+  signOut,
   User
 } from 'firebase/auth';
 import { 
@@ -21,12 +23,12 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { 
-  Calendar, CreditCard, MapPin, Users, Plus, Trash2, 
-  Utensils, ShoppingBag, Train, Settings, Search, 
+  Calendar, CreditCard, MapPin, Plus, Trash2, Users,
+  Utensils, ShoppingBag, Train, Search, 
   ExternalLink, Wallet, X, NotebookPen, StickyNote,   
   EyeOff, RotateCcw, Pencil, AlertCircle, Plane,
   Sparkles, Cherry, RefreshCw, Loader2, Map,
-  PlaneTakeoff, PlaneLanding, GripVertical
+  PlaneTakeoff, PlaneLanding, GripVertical, LogOut, ShieldAlert
 } from 'lucide-react';
 import {
   DndContext,
@@ -65,6 +67,14 @@ const analytics = getAnalytics(app);
 console.log('Analytics initialized:', analytics);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
+
+// --- 允許登入的 Email 白名單 ---
+const ALLOWED_EMAILS = [
+  'kyle921028@gmail.com',
+  'kyle10281202@gmail.com',
+  'Aa0968150809@gmail.com'
+].map(email => email.toLowerCase()); // 統一轉小寫比對
 
 // --- 類型定義 ---
 interface ItineraryItem {
@@ -232,19 +242,41 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ isOpen, title, message, o
   );
 };
 
-// --- 用戶設置組件 ---
-interface UserSetupProps {
-  onComplete: (name: string) => void;
+// --- 登入頁面組件 ---
+interface LoginPageProps {
+  onLoginSuccess: (user: User) => void;
 }
 
-const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
-  const [name, setName] = useState('');
+const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (name.trim()) {
-      localStorage.setItem('fukuoka_trip_user_name', name.trim());
-      onComplete(name.trim());
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const userEmail = result.user.email?.toLowerCase();
+      
+      if (!userEmail || !ALLOWED_EMAILS.includes(userEmail)) {
+        // 不在白名單中，登出並顯示錯誤
+        await signOut(auth);
+        setError('此帳號沒有訪問權限');
+        setLoading(false);
+        return;
+      }
+      
+      // 登入成功
+      onLoginSuccess(result.user);
+    } catch (err: unknown) {
+      console.error('登入失敗:', err);
+      if (err instanceof Error && err.message.includes('popup-closed')) {
+        setError('登入視窗已關閉');
+      } else {
+        setError('登入失敗，請重試');
+      }
+      setLoading(false);
     }
   };
 
@@ -290,36 +322,41 @@ const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
           福岡之旅
         </h1>
         <p className="text-gradient font-bold text-lg mb-2">2026</p>
-        <p className="text-slate-400 mb-8 text-sm">請輸入你的暱稱開始規劃旅程</p>
+        <p className="text-slate-400 mb-8 text-sm">使用 Google 帳號登入</p>
 
-        {/* 表單 */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="relative">
-            <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-            <input 
-              type="text"  
-              className="w-full pl-12 pr-5 py-4 rounded-xl bg-slate-950/80 border border-slate-700/50 focus:border-blue-500 outline-none text-white placeholder-slate-500 transition-all input-glow" 
-              placeholder="你的暱稱..."
-              value={name} 
-              onChange={(e) => setName(e.target.value)} 
-              required 
-              autoFocus 
-            />
+        {/* 錯誤訊息 */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm flex items-center gap-2 justify-center">
+            <ShieldAlert className="w-4 h-4" />
+            {error}
           </div>
-          <button 
-            type="submit" 
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-xl shadow-blue-900/40 transition-all btn-press flex items-center justify-center gap-2"
-          >
-            <span>開始旅程</span>
-            <Plane className="w-5 h-5" />
-          </button>
-        </form>
-      </div>
+        )}
 
-      {/* 底部裝飾文字 */}
-      <p className="absolute bottom-6 text-slate-600 text-xs">
-        
-      </p>
+        {/* Google 登入按鈕 */}
+        <button 
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full bg-white hover:bg-gray-100 text-gray-800 font-bold py-4 rounded-xl shadow-xl transition-all btn-press flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <>
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              <span>使用 Google 登入</span>
+            </>
+          )}
+        </button>
+
+        <p className="text-slate-600 text-xs mt-6">
+          僅限受邀成員登入
+        </p>
+      </div>
     </div>
   );
 };
@@ -917,12 +954,6 @@ const FukuokaApp: React.FC = () => {
   };
 
   useEffect(() => {
-    const savedName = localStorage.getItem('fukuoka_trip_user_name');
-    if (savedName) { 
-      setUserName(savedName); 
-      setIsSetup(true); 
-      setNewExpense(prev => ({ ...prev, payer: savedName })); 
-    }
     const savedHidden = localStorage.getItem('fukuoka_hidden_guides');
     if (savedHidden) { 
       try { setHiddenGuideIds(JSON.parse(savedHidden)); } catch(e) { console.error(e); } 
@@ -931,8 +962,29 @@ const FukuokaApp: React.FC = () => {
     // 載入時獲取匯率
     fetchExchangeRate();
     
-    signInAnonymously(auth).catch(err => console.error("Auth error:", err));
-    const unsubscribe = onAuthStateChanged(auth, setUser);
+    // 監聽登入狀態變化
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        const userEmail = currentUser.email?.toLowerCase();
+        // 檢查是否在白名單中
+        if (userEmail && ALLOWED_EMAILS.includes(userEmail)) {
+          setUser(currentUser);
+          // 使用 Google 帳號的顯示名稱
+          const displayName = currentUser.displayName || currentUser.email?.split('@')[0] || '用戶';
+          setUserName(displayName);
+          setIsSetup(true);
+          setNewExpense(prev => ({ ...prev, payer: displayName }));
+        } else {
+          // 不在白名單中，登出
+          await signOut(auth);
+          setUser(null);
+          setLoading(false);
+        }
+      } else {
+        setUser(null);
+        setLoading(false);
+      }
+    });
     return () => unsubscribe();
   }, []);
 
@@ -1108,7 +1160,16 @@ const FukuokaApp: React.FC = () => {
 
   const days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'];
 
-  if (!isSetup) return <UserSetup onComplete={(name) => { setUserName(name); setIsSetup(true); setNewExpense(p => ({ ...p, payer: name })); }} />;
+  // 未登入時顯示登入頁面
+  if (!user || !isSetup) {
+    return <LoginPage onLoginSuccess={(u) => {
+      setUser(u);
+      const displayName = u.displayName || u.email?.split('@')[0] || '用戶';
+      setUserName(displayName);
+      setIsSetup(true);
+      setNewExpense(p => ({ ...p, payer: displayName }));
+    }} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-28 font-sans selection:bg-blue-500/30">
@@ -1138,15 +1199,30 @@ const FukuokaApp: React.FC = () => {
               <p className="text-[10px] text-slate-500 font-medium">2026.01.13 - 01.19</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-xs font-bold text-blue-400 bg-blue-500/10 px-3 py-1.5 rounded-full border border-blue-500/20">
-              {userName}
+          <div className="flex items-center gap-2">
+            {/* 用戶頭像和名稱 */}
+            <div className="flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-full border border-blue-500/20">
+              {user?.photoURL && (
+                <img 
+                  src={user.photoURL} 
+                  alt="" 
+                  className="w-5 h-5 rounded-full"
+                />
+              )}
+              <span className="text-xs font-bold text-blue-400">{userName}</span>
             </div>
+            {/* 登出按鈕 */}
             <button 
-              onClick={() => { localStorage.removeItem('fukuoka_trip_user_name'); setIsSetup(false); }} 
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700 transition-all border border-slate-700/50"
+              onClick={async () => { 
+                await signOut(auth);
+                setUser(null);
+                setIsSetup(false);
+                setUserName('');
+              }} 
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800/80 text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all border border-slate-700/50"
+              title="登出"
             >
-              <Settings className="w-4 h-4" />
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
