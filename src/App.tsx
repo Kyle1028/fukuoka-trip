@@ -872,6 +872,7 @@ const FukuokaApp: React.FC = () => {
   const [newItem, setNewItem] = useState({ day: 'Day 1', time: '10:00', title: '', type: 'sightseeing', notes: '' });
   const [newExpense, setNewExpense] = useState({ description: '', amount: '', payer: '', currency: 'JPY' as 'JPY' | 'TWD' });
   const [newMemo, setNewMemo] = useState({ content: '', category: '筆記' });
+  const [selectedDay, setSelectedDay] = useState('Day 1');
 
   // 拖拽排序 sensors
   const sensors = useSensors(
@@ -1239,36 +1240,37 @@ const FukuokaApp: React.FC = () => {
                 <p className="text-sm text-slate-500 mt-1">與朋友的共同回憶</p>
               </div>
               <button 
-                onClick={() => setShowAddItinerary(true)} 
+                onClick={() => { 
+                  setNewItem(prev => ({ ...prev, day: selectedDay }));
+                  setShowAddItinerary(true); 
+                }} 
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white w-11 h-11 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/30 transition-all btn-press"
               >
                 <Plus className="w-5 h-5" />
               </button>
             </div>
             
-            {/* 天數快速導航 */}
+            {/* 天數選擇器 */}
             <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide -mx-1 px-1">
               {days.map((day, index) => {
                 const dayItems = itinerary.filter(i => i.day === day);
                 const hasItems = dayItems.length > 0;
+                const isSelected = selectedDay === day;
                 return (
                   <button
                     key={day}
-                    onClick={() => {
-                      const element = document.getElementById(`day-${index + 1}`);
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }
-                    }}
+                    onClick={() => setSelectedDay(day)}
                     className={`flex-shrink-0 px-4 py-2.5 rounded-xl font-bold text-sm transition-all border ${
-                      hasItems
-                        ? 'bg-gradient-to-br from-blue-600/20 to-indigo-600/20 text-blue-400 border-blue-500/30 hover:from-blue-600/30 hover:to-indigo-600/30'
-                        : 'bg-slate-900/50 text-slate-500 border-slate-800/50 hover:bg-slate-800/50'
+                      isSelected
+                        ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white border-blue-500 shadow-lg shadow-blue-900/30'
+                        : hasItems
+                          ? 'bg-gradient-to-br from-blue-600/20 to-indigo-600/20 text-blue-400 border-blue-500/30 hover:from-blue-600/30 hover:to-indigo-600/30'
+                          : 'bg-slate-900/50 text-slate-500 border-slate-800/50 hover:bg-slate-800/50'
                     }`}
                   >
                     <div className="flex flex-col items-center gap-0.5">
                       <span>Day {index + 1}</span>
-                      {hasItems && (
+                      {hasItems && !isSelected && (
                         <span className="text-[10px] text-blue-300/70">{dayItems.length} 項</span>
                       )}
                     </div>
@@ -1289,18 +1291,26 @@ const FukuokaApp: React.FC = () => {
                 <p className="text-slate-600 text-sm mt-1">點擊右上角 + 開始規劃</p>
               </div>
             ) : (
-              <div className="space-y-10 pb-10">
-                {days.map((day, index) => {
-                  const dayItems = itinerary.filter(i => i.day === day);
-                  if (dayItems.length === 0) return null;
+              <div className="pb-10">
+                {(() => {
+                  const dayItems = itinerary.filter(i => i.day === selectedDay);
+                  if (dayItems.length === 0) {
+                    return (
+                      <div className="text-center py-12 bg-slate-900/50 rounded-2xl border border-dashed border-slate-800">
+                        <Calendar className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+                        <p className="text-slate-500 text-sm">{selectedDay} 還沒有行程</p>
+                        <p className="text-slate-600 text-xs mt-1">點擊右上角 + 新增</p>
+                      </div>
+                    );
+                  }
                   return (
-                    <div key={day} id={`day-${index + 1}`} className="relative scroll-mt-28">
-                      <div className="sticky top-[72px] z-10 bg-slate-950/95 backdrop-blur-sm py-2 mb-4 flex items-center gap-3">
-                        <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-600/20 to-indigo-600/20 text-blue-400 font-bold text-xs border border-blue-500/20">
-                          {day}
-                        </span>
+                    <div className="relative">
+                      <div className="flex items-center gap-3 mb-4">
                         <span className="text-[10px] text-slate-600 flex items-center gap-1">
-                          <GripVertical className="w-3 h-3" /> 拖拽排序
+                          <GripVertical className="w-3 h-3" /> 拖拽可排序
+                        </span>
+                        <span className="text-[10px] text-slate-600">
+                          共 {dayItems.length} 個行程
                         </span>
                       </div>
                       <DndContext
@@ -1338,7 +1348,7 @@ const FukuokaApp: React.FC = () => {
                       </DndContext>
                     </div>
                   );
-                })}
+                })()}
               </div>
             )}
           </div>
